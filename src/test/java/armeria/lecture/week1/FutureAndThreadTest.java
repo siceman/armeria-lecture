@@ -58,6 +58,7 @@ class FutureAndThreadTest {
             future.complete("foo");
         });
 
+        // main
         future.thenAccept(str -> {
             currentThreadName();
         });
@@ -70,6 +71,7 @@ class FutureAndThreadTest {
         currentThreadName();
         final CompletableFuture<String> future = new CompletableFuture<>();
         final ExecutorService executor = Executors.newSingleThreadExecutor();
+        // thenAccept는 실행 순서를 보장해 주지 않기 때문에 thenAcceptAsync를 사용해서 executor에게 실행을 위임하는 형태
         future.thenAcceptAsync(str -> {
             currentThreadName();
         }, executor);

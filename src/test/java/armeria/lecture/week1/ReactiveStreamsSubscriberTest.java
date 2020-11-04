@@ -4,11 +4,17 @@ import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 import com.linecorp.armeria.common.AggregatedHttpResponse;
 import com.linecorp.armeria.common.HttpData;
+import com.linecorp.armeria.common.HttpObject;
 import com.linecorp.armeria.common.HttpResponse;
 import com.linecorp.armeria.common.ResponseHeaders;
+import com.linecorp.armeria.common.util.EventLoopGroups;
+
+import io.netty.channel.EventLoop;
 
 class ReactiveStreamsSubscriberTest {
 
@@ -39,7 +45,42 @@ class ReactiveStreamsSubscriberTest {
     }
 
     private CompletableFuture<MyAggregatedHttpResponse> aggregate(HttpResponse res) {
-       return null;
+        final CompletableFuture<MyAggregatedHttpResponse> future = new CompletableFuture<>();
+        final EventLoop executors = EventLoopGroups.newEventLoopGroup(1).next();
+        res.subscribe(new Subscriber<HttpObject>() {
+            private Subscription s;
+            private ResponseHeaders headers;
+            private HttpData data;
+            @Override
+            public void onSubscribe(Subscription s) {
+                this.s = s;
+                s.request(1);
+                currentThreadName("onSubscribe");
+            }
+
+            @Override
+            public void onNext(HttpObject httpObject) {
+                if (httpObject instanceof ResponseHeaders) {
+                    headers = (ResponseHeaders) httpObject;
+                } else if (httpObject instanceof HttpData) {
+                    data = (HttpData) httpObject;
+                }
+                s.request(1);
+                currentThreadName("onNext");
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                currentThreadName("onError");
+            }
+
+            @Override
+            public void onComplete() {
+                future.complete(new MyAggregatedHttpResponse(headers, data));
+                currentThreadName("onComplete");
+            }
+        });
+        return future;
     }
 
     private static void currentThreadName(String method) {
