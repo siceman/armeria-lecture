@@ -20,11 +20,22 @@ import com.linecorp.armeria.server.ServerBuilder;
 import com.linecorp.armeria.server.ServiceRequestContext;
 import com.linecorp.armeria.testing.junit5.server.ServerExtension;
 
+import armeria.lecture.week2.ServiceInfoServer.DiscoveryService;
+import armeria.lecture.week2.ServiceInfoServer.RegistrationService;
+
 public class ServiceInfoServerTest {
     @RegisterExtension
     static final ServerExtension server = new ServerExtension() {
         @Override
         protected void configure(ServerBuilder sb) throws Exception {
+            final ConcurrentLinkedQueue<String> addresses = new ConcurrentLinkedQueue<>();
+            sb.route()
+              .post("/registration")
+              .build(new RegistrationService(addresses))
+              .service("/discovery", new DiscoveryService(addresses));
+        }
+//        @Override
+//        protected void configure(ServerBuilder sb) throws Exception {
 //            sb.annotatedService(new Object() {
 //                // 스프링 스타일로 annotation 기반으로 처리
 //                @Post("/registration")
@@ -33,33 +44,32 @@ public class ServiceInfoServerTest {
 //               }
 //            });
 
-            // route를 활용하여 post만 받을수 있도록 지정하는 방식
-           // sb.route().post("/registration").methods(HttpMethod.POST).build((ctx, req) -> {});
-            final Queue<String> list = new ConcurrentLinkedQueue<>();
-            sb.service("/registration", new HttpService() {
-                @Override
-                public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
-                    final RequestHeaders headers = req.headers();
-                    final HttpMethod method = headers.method();
-                    if (HttpMethod.POST != method) {
-                        return HttpResponse.of(500);
-                    }
-                    final CompletableFuture<HttpResponse> future = new CompletableFuture<>();
-                    final CompletableFuture<AggregatedHttpRequest> aggregated = req.aggregate();
-                    aggregated.thenAccept(aggregatedHttpRequest -> {
-                        final String content = aggregatedHttpRequest.contentUtf8();
-                        list.add(content);
-                        System.out.println(list);
-                        future.complete(HttpResponse.of(200));
-                    });
-                    return HttpResponse.from(future);
-                }
-            });
-
-            sb.route().get("/discovery").methods(HttpMethod.GET).build((ctx, req) -> {
-               return HttpResponse.of(list.toString());
-            });
-        }
+//            // route를 활용하여 post만 받을수 있도록 지정하는 방식
+//           // sb.route().post("/registration").methods(HttpMethod.POST).build((ctx, req) -> {});
+//            final Queue<String> list = new ConcurrentLinkedQueue<>();
+//            sb.service("/registration", new HttpService() {
+//                @Override
+//                public HttpResponse serve(ServiceRequestContext ctx, HttpRequest req) throws Exception {
+//                    final RequestHeaders headers = req.headers();
+//                    final HttpMethod method = headers.method();
+//                    if (HttpMethod.POST != method) {
+//                        return HttpResponse.of(500);
+//                    }
+//                    final CompletableFuture<HttpResponse> future = new CompletableFuture<>();
+//                    final CompletableFuture<AggregatedHttpRequest> aggregated = req.aggregate();
+//                    aggregated.thenAccept(aggregatedHttpRequest -> {
+//                        final String content = aggregatedHttpRequest.contentUtf8();
+//                        list.add(content);
+//                        System.out.println(list);
+//                        future.complete(HttpResponse.of(200));
+//                    });
+//                    return HttpResponse.from(future);
+//                }
+//            });
+//
+//            sb.route().get("/discovery").methods(HttpMethod.GET).build((ctx, req) -> {
+//               return HttpResponse.of(list.toString());
+//            });
     };
 
     @Test
